@@ -14,6 +14,15 @@ namespace Data
 
         public DbSet<Wine> Wines { get; set; }
 
+        public DbSet<Tasting> Tastings { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Tasting>()
+                .HasMany(t => t.Wines)
+                .WithMany(); 
+        }
+
         public WineAppContext(DbContextOptions<WineAppContext> options) : base(options)
         {
 

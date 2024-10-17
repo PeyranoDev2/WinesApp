@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Common.Enums;
 
 namespace Data.Entities
 {
@@ -18,13 +19,13 @@ namespace Data.Entities
         public string Name { get; set; } = string.Empty;
 
         // Variedad del vino (ej: Cabernet Sauvignon)
-        public string Variety { get; set; } = string.Empty;
+        public WineVarietyEnum Variety { get; set; }
 
         // Año de cosecha, debe ser un valor válido
         public int Year { get; set; }
 
         // Región de origen (ej: Mendoza, La Rioja)
-        public string Region { get; set; } = string.Empty;
+        public WineRegionEnum Region { get; set; }
 
         // Cantidad disponible en stock, debe ser mayor o igual a 0
         private int _stock;

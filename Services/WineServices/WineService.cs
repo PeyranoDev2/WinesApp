@@ -1,4 +1,7 @@
-﻿using Common.Models;
+﻿using Common.Enums;
+using Common.Exceptions;
+using Common.Extensions;
+using Common.Models;
 using Data.Entities;
 using Data.Repository;
 using System;
@@ -20,36 +23,99 @@ namespace Services.WineServices
 
         public int AddWine(WineForCreateDTO wineForCreateDTO)
         {
-            // Verificar si el vino ya existe
-            var existingWine = _wineRepository.GetWines()
-                .FirstOrDefault(w => w.Name == wineForCreateDTO.Name &&
-                                     w.Variety == wineForCreateDTO.Variety &&
-                                     w.Year == wineForCreateDTO.Year);
+            string NormalizeWineProperty(string input) => input.Trim().Replace(" ", "_");
 
-            if (existingWine != null)
-            {
-                throw new InvalidOperationException("This wine already exists");
-            }
+            string normalizedVariety = NormalizeWineProperty(wineForCreateDTO.Variety);
+            string normalizedRegion = NormalizeWineProperty(wineForCreateDTO.Region);
+
+            if (!Enum.TryParse<WineVarietyEnum>(normalizedVariety, true, out var wineVarietyEnum))
+                throw new InvalidWineVarietyException("Invalid wine variety provided.");
+
+            if (!Enum.TryParse<WineRegionEnum>(normalizedRegion, true, out var wineRegionEnum))
+                throw new InvalidWineRegionException("Invalid wine region provided.");
+
+            if (_wineRepository.WineExists(wineForCreateDTO.Name, wineVarietyEnum, wineForCreateDTO.Year, wineRegionEnum))
+                throw new WineAlreadyExistsException("This wine already exists.");
 
             // Crear un nuevo objeto Wine
             Wine wine = new Wine()
             {
                 Name = wineForCreateDTO.Name,
-                Variety = wineForCreateDTO.Variety,
+                Variety = wineVarietyEnum,
                 Year = wineForCreateDTO.Year,
-                Region = wineForCreateDTO.Region,
+                Region = wineRegionEnum,
                 Stock = wineForCreateDTO.Stock,
                 CreatedAt = DateTime.UtcNow,
             };
 
-            // Agregar el vino al repositorio
             _wineRepository.AddWine(wine);
-            return wine.Id; // El ID ya estará establecido por la base de datos
+            return wine.Id;
         }
 
         public Dictionary<string, int> GetAllWinesStock()
-                {
-                    return _wineRepository.GetAllWinesStock();
-                }
+        {
+            return _wineRepository.GetAllWinesStock();
         }
+
+        public IEnumerable<WineForResponseDTO> Get()
+        {
+            var wines = _wineRepository.GetAll(); 
+
+            return wines.Select(w => new WineForResponseDTO
+            {
+                Id = w.Id,
+                Name = w.Name,
+                Variety = ((WineVarietyEnum)w.Variety).ToFriendlyString(), 
+                Region = ((WineRegionEnum)w.Region).ToFriendlyString(),   
+                Year = w.Year,
+                Stock = w.Stock
+            }).ToList();
+        }
+
+        public WineForResponseDTO Get(int id)
+        {
+            var wine = _wineRepository.GetById(id);
+
+            if (wine == null)
+            {
+                throw new NotFoundException("Wine not found."); 
+            }
+
+            var wineResponse = new WineForResponseDTO
+            {
+                Id = wine.Id,
+                Name = wine.Name,
+                Variety = ((WineVarietyEnum)wine.Variety).ToFriendlyString(), 
+                Region = ((WineRegionEnum)wine.Region).ToFriendlyString(),     
+                Year = wine.Year,
+                Stock = wine.Stock
+            };
+
+            return wineResponse; // Retorna el DTO
+        }
+
+        public void UpdateWineStock(int wineId, int newStock)
+        {
+            var wine = _wineRepository.GetById(wineId);
+            if (wine == null)
+            {
+                throw new KeyNotFoundException("Wine not found.");
+            }
+
+            wine.Stock = newStock;
+
+            _wineRepository.Update(wine);
+        }
+
+        public IEnumerable<Wine> GetWinesByVariety(string variety)
+        {
+            if (!Enum.TryParse<WineVarietyEnum>(variety.Trim().Replace(" ", ""), true, out var wineVarietyEnum))
+            {
+                throw new InvalidWineVarietyException("Invalid wine variety provided.");
+            }
+
+            return _wineRepository.GetByVariety(wineVarietyEnum);
+        }
+
+    }
 }
